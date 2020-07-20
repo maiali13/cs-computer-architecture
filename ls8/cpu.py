@@ -14,14 +14,26 @@ class CPU:
         # self.ram = [0] * self.bytes
         self.ram = bytearray(32)
         self.register = bytearray(8)
+
+    def ram_read(self, address):
+        """
+        accepts the address to read and returns the value stored there
+        """
+        print(f'RAM at {self.pc} has the address value {self.ram[address]}. ')
+        return self.ram[address]
+    
+    def ram_write(self, value, address):
+        """
+        accepts a value to write, and the address to write it to
+        """
+        print(f'Value {self.ram[address]} was written to RAM at {self.pc} address {self.ram[address]}. ')
+        self.ram[address] = value
         
     def load(self):
         """Load a program into memory."""
-
         address = 0
 
         # For now, we've just hardcoded a program:
-
         program = [
             # From print8.ls8
             0b10000010, # LDI R0,8
