@@ -3,6 +3,10 @@
 
 import sys
 
+HLT = 0b00000001
+LDI = 0b10000010
+PRN = 0b01000111
+
 class CPU:
     """Main CPU class."""
 
@@ -85,4 +89,19 @@ class CPU:
         operand_a = self.ram_read(self.PC + 1)
         operand_b = self.ram_read(self.PC + 2)
 
-        
+        while self.IR != HLT: # while cpu is running
+            if self.IR == LDI: # set value of reg to an int
+                self.register[operand_a] = operand_b
+                self.PC += 3
+
+            elif self.IR == PRN: # print value stored in the reg
+                print(self.register[operand_a])
+                self.PC += 2
+
+            else:
+                raise Exception('Unsupported operation {self.IR} at address {self.PC}.')
+            
+            self.IR = self.ram_read(self.PC)
+            operand_a = self.ram_read(self.PC + 1)
+            operand_b = self.ram_read(self.PC + 2)
+            
