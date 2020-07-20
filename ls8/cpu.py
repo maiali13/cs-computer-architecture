@@ -1,5 +1,4 @@
 """CPU functionality
-reads memory address and stores result in IR via run()
 """
 
 import sys
@@ -79,5 +78,11 @@ class CPU:
         print()
 
     def run(self):
-        """Run the CPU."""
-        pass
+        """Run the CPU.
+        reads memory address and stores result in IR
+        """
+        self.IR = self.ram_read(self.PC)
+        operand_a = self.ram_read(self.PC + 1)
+        operand_b = self.ram_read(self.PC + 2)
+
+        
