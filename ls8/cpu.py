@@ -1,4 +1,6 @@
-"""CPU functionality."""
+"""CPU functionality
+reads memory address and stores result in IR via run()
+"""
 
 import sys
 
@@ -7,8 +9,12 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
-
+        self.PC = 0
+        # self.bytes = 256
+        # self.ram = [0] * self.bytes
+        self.ram = bytearray(32)
+        self.register = bytearray(8)
+        
     def load(self):
         """Load a program into memory."""
 
@@ -19,10 +25,10 @@ class CPU:
         program = [
             # From print8.ls8
             0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
+            0b00000000, # 0
+            0b00001000, # 8
             0b01000111, # PRN R0
-            0b00000000,
+            0b00000000, # 0
             0b00000001, # HLT
         ]
 
