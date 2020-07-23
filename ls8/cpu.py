@@ -16,6 +16,9 @@ MOD = 0b10100100
 POP = 0b01000110
 PUSH = 0b01000101
 
+CALL = 0b01010000
+RET = 0b00010001
+
 # register num for stack pointer
 SP = 7
 
@@ -28,11 +31,13 @@ class CPU:
         # self.bytes = 256
         # self.ram = [0] * self.bytes
         self.ram = bytearray(256)
-        self.register = bytearray(8)
-        self.register[SP] = 0xF4
-        self.branch_table = {
+        self.reg = bytearray(8)
+        self.reg[SP] = 0xF4
+        self.branch = {
             HLT: self.hlt,
             LDI: self.ldi,
+            CALL: self.call,
+            RET: self.ret,
             PRN: self.prn,
             POP: self.pop,
             PUSH: self.push,
@@ -49,32 +54,43 @@ class CPU:
     def ldi(self, op_a, op_b):
         self.reg[op_a] = op_b
 
-    def prn(self, op_a, op_b):
+    def prn(self, op_a, op_b=None):
         print(self.reg[op_a])
     
+    # stack
     def pop(self, reg_num):
         self.reg[reg_num] = self.ram_read(self.reg[SP])
         self.reg[SP] += 1
 
     def push(self, reg_num):
         self.reg[SP] -= 1
-        self.ram_write(self.reg[reg_num], self.reg[SP])    
+        self.ram_write(self.reg[reg_num], self.reg[SP])
+    
+    # subroutine
+    def call(self, op_a, op_b=None):
+        self.reg[SP] -= 1
+        self.ram_write(self.reg[SP], self.PC + 2)
+        self.PC = self.reg[op_a]
+
+    def ret(self, op_a, op_b=None):
+        self.PC = self.ram_read(self.reg[SP])
+        self.reg[SP] += 1  
 
     def ram_read(self, address):
         """
         accepts the address to read and returns the value stored there
         """
-        print(f'RAM at {self.pc} has the address value {self.ram[address]}. ')
+        print(f'RAM at {self.PC} has the address value {self.ram[address]}. ')
         return self.ram[address]
     
     def ram_write(self, value, address):
         """
         accepts a value to write, and the address to write it to
         """
-        print(f'Value {self.ram[address]} was written to RAM at {self.pc} address {self.ram[address]}. ')
+        print(f'Value {self.ram[address]} was written to RAM at {self.PC} address {self.ram[address]}. ')
         self.ram[address] = value
         
-    def load(self, filename):
+    def load(self, file):
         """Load a program into memory."""
         address = 0
 
@@ -137,9 +153,9 @@ class CPU:
             self.pc,
             #self.fl,
             #self.ie,
-            self.ram_read(self.pc),
-            self.ram_read(self.pc + 1),
-            self.ram_read(self.pc + 2)
+            self.ram_read(self.PC),
+            self.ram_read(self.PC + 1),
+            self.ram_read(self.PC + 2)
         ), end='')
 
         for i in range(8):
@@ -151,28 +167,25 @@ class CPU:
         """Run the CPU.
         reads memory address and stores result in IR
         """
-        self.IR = self.ram_read(self.PC)
-        operand_a = self.ram_read(self.PC + 1)
-        operand_b = self.ram_read(self.PC + 2)
-
+        running = True
         # update for branch table
-        while self.IR != HLT: # while cpu is running
+        while running:
+            self.IR = self.ram_read(self.PC)
+            op_a = self.ram_read(self.PC + 1)
+            op_b = self.ram_read(self.PC + 2)
+
             nums = ((self.IR & 0b11000000) >> 6)
-            try: 
-                if num_args == 0:
-                    self.branch[self.IR]()
-
-                elif num_args == 1:
-                    self.branch[self.IR](operand_a)
-
+            ALU_ops = ((self.IR & 0b11000000) >> 5)
+            PC_set = ((self.IR & 0b11000000) >> 4)
+            
+            if self.IR in self.branch:
+                if ALU_ops:
+                    self.branch[self.IR](op_a, op_b)
                 else:
-                    self.branch[self.IR](operand_a, operand_b)
-
-            except KeyError:
+                    self.branch[self.IR](op_a, op_b)
+            else:
                 raise Exception('Unsupported operation {self.IR} at address {self.PC}.')
             
-            self.PC += nums + 1
-            self.IR = self.ram_read(self.PC)
-            operand_a = self.ram_read(self.PC + 1)
-            operand_b = self.ram_read(self.PC + 2)
+            if not PC_set:
+                self.PC += nums + 1 # opcode
             
