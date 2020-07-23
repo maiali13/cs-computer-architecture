@@ -7,7 +7,7 @@ from cpu import *
 
 cpu = CPU()
 
-file = sys.argv[1]
+# file = sys.argv[1]
 
-cpu.load(file)
+cpu.load()
 cpu.run()

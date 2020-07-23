@@ -1,5 +1,4 @@
-"""CPU functionality
-"""
+"""CPU functionality."""
 
 import sys
 
@@ -27,36 +26,44 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        self.PC = 0
-        # self.bytes = 256
-        # self.ram = [0] * self.bytes
-        self.ram = bytearray(256)
-        self.reg = bytearray(8)
-        self.reg[SP] = 0xF4
+
         self.branch = {
             HLT: self.hlt,
             LDI: self.ldi,
-            CALL: self.call,
-            RET: self.ret,
             PRN: self.prn,
             POP: self.pop,
             PUSH: self.push,
-            ADD: self.alu,
-            SUB: self.alu,
-            MUL: self.alu,
-            DIV: self.alu,
-            MOD: self.alu,
-        }
+            CALL: self.call,
+            RET: self.ret,
+            ADD: self.add,
+            SUB: self.sub,
+            MUL: self.mul,
+            DIV: self.div,
+            MOD: self.mod,
+                       }
 
-    def hlt(self, op_a, op_b):
+        self.reg = bytearray(8)
+        self.ram = bytearray(256)
+        self.reg[SP] = 0xF4
+
+        # internal registers
+        self.PC = 0
+        self.IR = 0
+
+        self.MAR = 0
+        self.MDR = 0
+        
+        self.FL = 0
+
+    def hlt(self, reg_num, value):
         sys.exit()
 
-    def ldi(self, op_a, op_b):
-        self.reg[op_a] = op_b
+    def ldi(self, reg_num, value):
+        self.reg[reg_num] = value
 
-    def prn(self, op_a, op_b=None):
-        print(self.reg[op_a])
-    
+    def prn(self, reg_num):
+        print(self.reg[reg_num])
+
     # stack
     def pop(self, reg_num):
         self.reg[reg_num] = self.ram_read(self.reg[SP])
@@ -65,32 +72,43 @@ class CPU:
     def push(self, reg_num):
         self.reg[SP] -= 1
         self.ram_write(self.reg[reg_num], self.reg[SP])
+
+    # sub
+    def call(self, reg_num):
+        self.ldi(4, self.PC + 2)
+        self.push(4)
+        self.PC = self.reg[reg_num]
+
+    def ret(self):
+        self.pop(4)
+        self.PC = self.reg[4]
+
+    # arithmetic ops
+    def add(self, reg_a, reg_b):
+        self.alu("ADD", reg_a, reg_b)
+
+    def sub(self, reg_a, reg_b):
+        self.alu("SUB", reg_a, reg_b)
+
+    def mul(self, reg_a, reg_b):
+        self.alu("MUL", reg_a, reg_b)
     
-    # subroutine
-    def call(self, op_a, op_b=None):
-        self.reg[SP] -= 1
-        self.ram_write(self.reg[SP], self.PC + 2)
-        self.PC = self.reg[op_a]
+    def div(self, reg_a, reg_b):
+        self.alu("DIV", reg_a, reg_b)
 
-    def ret(self, op_a, op_b=None):
-        self.PC = self.ram_read(self.reg[SP])
-        self.reg[SP] += 1  
+    def mod(self, reg_a, reg_b):
+        self.alu("MOD", reg_a, reg_b)
 
+    # memory
     def ram_read(self, address):
-        """
-        accepts the address to read and returns the value stored there
-        """
-        print(f'RAM at {self.PC} has the address value {self.ram[address]}. ')
+        # print(f'RAM at {self.PC} has the address value {self.ram[address]}. ')
         return self.ram[address]
-    
+
     def ram_write(self, value, address):
-        """
-        accepts a value to write, and the address to write it to
-        """
-        print(f'Value {self.ram[address]} was written to RAM at {self.PC} address {self.ram[address]}. ')
+        # print(f'Value {self.ram[address]} was written to RAM at {self.PC} address {self.ram[address]}. ')
         self.ram[address] = value
-        
-    def load(self, file):
+
+    def load(self):
         """Load a program into memory."""
         address = 0
 
@@ -108,19 +126,20 @@ class CPU:
         #     self.ram[address] = instruction
         #     address += 1
 
-        with open(file) as f:
-            for line in f:
-                # ignore comments
-                line = line.split("#")
-                try:
-                    # convert to into to store in ram
-                    instruction = int(line[0], 2)
+        # completely move load to cpu.py
+        if len(sys.argv) != 2:
+            print("Usage: ls8.py <filename>")
+            sys.exit()
 
-                except ValueError:
-                    continue
+        with open(sys.argv[1]) as file:
+            program = [int(line[:line.find('#')].strip(), 2)
+                       for line in file
+                       if line != '\n' and line[0] != '#']
 
-                self.ram[address] = instruction
-                address += 1
+        for instruction in program:
+            self.ram[address] = instruction
+            address += 1
+
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -150,7 +169,7 @@ class CPU:
         """
 
         print(f"TRACE: %02X | %02X %02X %02X |" % (
-            self.pc,
+            self.PC,
             #self.fl,
             #self.ie,
             self.ram_read(self.PC),
@@ -160,32 +179,34 @@ class CPU:
 
         for i in range(8):
             print(" %02X" % self.reg[i], end='')
-
         print()
 
     def run(self):
         """Run the CPU.
         reads memory address and stores result in IR
         """
-        running = True
-        # update for branch table
-        while running:
+        self.IR = self.ram_read(self.PC)
+        op_a = self.ram_read(self.PC + 1)
+        op_b = self.ram_read(self.PC + 2)
+
+        # while cpu is running
+        while self.IR != HLT:
+            nums = (self.IR & 0b11000000) >> 6
+            pc_set = (self.IR & 0b00010000) >> 4
+            try:
+                if nums == 0:
+                    self.branch[self.IR]()
+                elif nums == 1:
+                    self.branch[self.IR](op_a)
+                else:
+                    self.branch[self.IR](op_a, op_b)
+
+            except KeyError:
+                raise Exception("Unsupported operation {self.IR} at address {self.PC}.")
+
+            if pc_set == 0:
+                self.PC += nums + 1
+
             self.IR = self.ram_read(self.PC)
             op_a = self.ram_read(self.PC + 1)
             op_b = self.ram_read(self.PC + 2)
-
-            nums = ((self.IR & 0b11000000) >> 6)
-            ALU_ops = ((self.IR & 0b11000000) >> 5)
-            PC_set = ((self.IR & 0b11000000) >> 4)
-            
-            if self.IR in self.branch:
-                if ALU_ops:
-                    self.branch[self.IR](op_a, op_b)
-                else:
-                    self.branch[self.IR](op_a, op_b)
-            else:
-                raise Exception('Unsupported operation {self.IR} at address {self.PC}.')
-            
-            if not PC_set:
-                self.PC += nums + 1 # opcode
-            
