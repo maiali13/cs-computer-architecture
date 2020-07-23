@@ -11,6 +11,7 @@ MUL = 0b10100010
 DIV = 0b10100011
 ADD = 0b10100000
 SUB = 0b10100001
+MOD = 0b10100100
 
 POP = 0b01000110
 PUSH = 0b01000101
@@ -26,7 +27,7 @@ class CPU:
         self.PC = 0
         # self.bytes = 256
         # self.ram = [0] * self.bytes
-        self.ram = bytearray(32)
+        self.ram = bytearray(256)
         self.register = bytearray(8)
         self.register[SP] = 0xF4
         self.branch_table = {
@@ -38,7 +39,8 @@ class CPU:
             ADD: self.alu,
             SUB: self.alu,
             MUL: self.alu,
-            DIV: self.alu
+            DIV: self.alu,
+            MOD: self.alu,
         }
 
     def hlt(self, op_a, op_b):
